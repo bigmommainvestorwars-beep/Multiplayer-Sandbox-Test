@@ -1,0 +1,6 @@
+{
+  "name": "Multiplayer Sandbox Test",
+  "description": "Multiplayer Sandbox test project for Firebase initialization and anonymous authentication diagnostics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
