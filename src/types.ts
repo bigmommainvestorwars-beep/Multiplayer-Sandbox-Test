@@ -1,4 +1,5 @@
 import { User } from 'firebase/auth';
+import type { Timestamp } from 'firebase/firestore';
 
 export interface AuthState {
   user: User | null;
@@ -14,4 +15,23 @@ export interface AuthState {
   firestoreInitialized: boolean;
   isAnonymous: boolean;
   authListenerAttached: boolean;
+}
+
+export interface PresencePlayer {
+  uid: string;
+  displayName: string;
+  online: boolean;
+  lastSeen: Timestamp | null | { seconds: number; nanoseconds: number };
+}
+
+export interface PresenceState {
+  players: PresencePlayer[];
+  loading: boolean;
+  error: {
+    code?: string;
+    message: string;
+    raw?: unknown;
+  } | null;
+  presenceDocWritten: boolean;
+  listenerActive: boolean;
 }

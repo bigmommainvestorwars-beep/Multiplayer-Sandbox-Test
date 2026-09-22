@@ -15,13 +15,23 @@ import {
   Info
 } from 'lucide-react';
 import { firebaseConfig } from '../firebase';
-import type { AuthState } from '../types';
+import { ConnectedPlayers } from './ConnectedPlayers';
+import { PresencePathDiagnostics } from './PresencePathDiagnostics';
+import type { AuthState, PresenceState } from '../types';
 
 interface DiagnosticScreenProps {
   authState: AuthState & { retrySignIn: () => Promise<void> };
+  presenceState: PresenceState & {
+    customDisplayName: string;
+    updateDisplayName: (name: string) => Promise<void>;
+    refreshPresence: () => Promise<void>;
+  };
 }
 
-export const DiagnosticScreen: React.FC<DiagnosticScreenProps> = ({ authState }) => {
+export const DiagnosticScreen: React.FC<DiagnosticScreenProps> = ({ 
+  authState,
+  presenceState
+}) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyUid = () => {
@@ -85,12 +95,12 @@ export const DiagnosticScreen: React.FC<DiagnosticScreenProps> = ({ authState })
               <div>
                 <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
                   Multiplayer Sandbox Test
-                  <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono font-normal">
-                    Task 1
+                  <span className="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-normal">
+                    Presence Test
                   </span>
                 </h1>
                 <p className="text-sm text-zinc-400">
-                  Firebase Initialization &amp; Anonymous Auth Diagnostics
+                  Real-time Firestore Presence &amp; Anonymous Auth Sync
                 </p>
               </div>
             </div>
@@ -132,6 +142,18 @@ export const DiagnosticScreen: React.FC<DiagnosticScreenProps> = ({ authState })
             </div>
           </div>
         )}
+
+        {/* CONNECTED PLAYERS REAL-TIME SECTION */}
+        <ConnectedPlayers
+          currentUid={authState.uid}
+          presenceState={presenceState}
+        />
+
+        {/* FIRESTORE PRESENCE PATH & ERROR DIAGNOSTIC PANEL */}
+        <PresencePathDiagnostics
+          authState={authState}
+          presenceState={presenceState}
+        />
 
         {/* 4 Primary Diagnostic Metric Grid */}
         <div id="diagnostic-metrics-grid" className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -269,40 +291,40 @@ export const DiagnosticScreen: React.FC<DiagnosticScreenProps> = ({ authState })
 
         </div>
 
-        {/* Task 1 Compliance Verification Checklist */}
+        {/* Task Verification Checklist */}
         <div id="compliance-checklist-card" className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
           <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
             <Terminal className="w-4 h-4 text-zinc-400" />
-            Task 1 Requirements Verification
+            Presence &amp; Multiplayer Core Requirements
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Initialize Firebase exactly once</span>
+              <span>Real-time presence path: /presence/{'{uid}'}</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Initialize Firebase Authentication</span>
+              <span>Real-time listener using onSnapshot</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Initialize Cloud Firestore</span>
+              <span>Presence schema: uid, displayName, online, lastSeen</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Firebase Anonymous Authentication flow</span>
+              <span>Strictly auth.currentUser.uid as sole player identity</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Auth-state listener via onAuthStateChanged</span>
+              <span>Clean unsubscribe on unmount &amp; page unload</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>auth.currentUser.uid as sole online identity</span>
+              <span>No polling, no WebSockets, no fake timers</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Display actual Firebase error code &amp; message</span>
+              <span>Direct Firestore error code &amp; message reporting</span>
             </div>
             <div className="flex items-center gap-2 text-zinc-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
