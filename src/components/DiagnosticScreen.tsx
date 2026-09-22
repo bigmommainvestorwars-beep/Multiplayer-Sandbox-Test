@@ -30,6 +30,10 @@ interface DiagnosticScreenProps {
   roomState: RoomState & {
     createRoom: () => Promise<void>;
     joinRoom: () => Promise<void>;
+    incrementCounter: () => Promise<void>;
+    resetCounter: () => Promise<void>;
+    endTurn: () => Promise<void>;
+    rollDice: () => Promise<void>;
   };
 }
 

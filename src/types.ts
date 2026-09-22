@@ -41,6 +41,10 @@ export interface SandboxRoom {
   createdAt: Timestamp | null | { seconds: number; nanoseconds: number };
   hostId: string;
   participantIds: string[];
+  counter: number;
+  currentPlayerId: string | null;
+  lastRoll: number | null;
+  lastRollPlayerId: string | null;
 }
 
 export interface RoomState {

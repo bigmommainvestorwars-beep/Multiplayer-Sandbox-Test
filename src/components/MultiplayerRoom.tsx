@@ -12,7 +12,15 @@ import {
   Radio, 
   Clock, 
   ShieldAlert,
-  FolderSync
+  FolderSync,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  ArrowRightCircle,
+  Shield,
+  Hourglass,
+  CheckCircle2,
+  Dices
 } from 'lucide-react';
 import type { SandboxRoom, RoomState, PresencePlayer } from '../types';
 
@@ -21,6 +29,10 @@ interface MultiplayerRoomProps {
   roomState: RoomState & {
     createRoom: () => Promise<void>;
     joinRoom: () => Promise<void>;
+    incrementCounter: () => Promise<void>;
+    resetCounter: () => Promise<void>;
+    endTurn: () => Promise<void>;
+    rollDice: () => Promise<void>;
   };
   presencePlayers: PresencePlayer[];
 }
@@ -43,6 +55,17 @@ export const MultiplayerRoom: React.FC<MultiplayerRoomProps> = ({
   const isCurrentPlayerHost = Boolean(currentUid && room?.hostId === currentUid);
   const isCurrentPlayerInRoom = Boolean(currentUid && room?.participantIds?.includes(currentUid));
 
+  // Turn state calculations
+  const participants = room?.participantIds || [];
+  const activeCurrentPlayerUid = room?.currentPlayerId || (participants.length > 0 ? participants[0] : null);
+  const isMyTurn = Boolean(currentUid && activeCurrentPlayerUid && currentUid === activeCurrentPlayerUid);
+  const hasTwoPlayers = participants.length >= 2;
+
+  // Dice state calculations
+  const lastRollValue = typeof room?.lastRoll === 'number' ? room.lastRoll : null;
+  const lastRollPlayerUid = room?.lastRollPlayerId || null;
+  const canIRoll = Boolean(currentUid && activeCurrentPlayerUid && currentUid === activeCurrentPlayerUid && room);
+
   const getRoomStatusLabel = () => {
     if (loading) return { text: 'Loading Room...', color: 'text-zinc-400', bg: 'bg-zinc-800' };
     if (!room) return { text: 'Room Not Created', color: 'text-amber-400', bg: 'bg-amber-950/80 border-amber-800' };
@@ -64,6 +87,7 @@ export const MultiplayerRoom: React.FC<MultiplayerRoomProps> = ({
   };
 
   const statusInfo = getRoomStatusLabel();
+  const counterValue = typeof room?.counter === 'number' ? room.counter : 0;
 
   return (
     <section id="multiplayer-room-section" className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
@@ -150,7 +174,434 @@ export const MultiplayerRoom: React.FC<MultiplayerRoomProps> = ({
         </div>
       )}
 
-      {/* 3 Core Fields Required: ROOM STATUS, HOST, CONNECTED PLAYERS */}
+      {/* FIRESTORE SYNCHRONIZATION TEST: SHARED COUNTER */}
+      <div id="firestore-sync-test-panel" className="bg-gradient-to-br from-purple-950/40 to-zinc-950 border-2 border-purple-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-500/20 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded bg-purple-500/20 text-purple-400">
+                <Sparkles className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-bold tracking-wider uppercase text-purple-200 font-mono">
+                FIRESTORE REAL-TIME SYNCHRONIZATION TEST
+              </h3>
+            </div>
+            <p className="text-xs text-zinc-400 font-mono">
+              Direct live binding from Firestore <code className="text-purple-300">/sandbox/mainRoom.counter</code> via <code className="text-emerald-300">onSnapshot</code>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              Single Source of Truth: Firestore
+            </span>
+          </div>
+        </div>
+
+        {/* Counter Big Display and Action Buttons */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-2">
+          
+          <div className="flex items-center gap-5">
+            <div className="text-center sm:text-left">
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
+                Live Document Value
+              </span>
+              <div id="shared-counter-display" className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white flex items-center gap-3">
+                <span className="text-purple-400">SHARED COUNTER:</span>
+                <span className="text-emerald-400 bg-zinc-950 px-4 py-1.5 rounded-xl border border-zinc-800 shadow-inner">
+                  {counterValue}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Buttons: +1 & RESET */}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              id="increment-counter-btn"
+              onClick={() => roomState.incrementCounter()}
+              disabled={actionLoading || !currentUid}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white shadow-lg transition-all cursor-pointer border border-emerald-400/40"
+              title="Atomically increments counter in Firestore /sandbox/mainRoom"
+            >
+              {actionLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-5 h-5 stroke-[3]" />
+              )}
+              <span>+1</span>
+            </button>
+
+            <button
+              id="reset-counter-btn"
+              onClick={() => roomState.resetCounter()}
+              disabled={actionLoading || !currentUid}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl text-sm font-semibold bg-zinc-800 hover:bg-zinc-700 active:scale-95 disabled:opacity-50 text-zinc-200 shadow transition-all cursor-pointer border border-zinc-700"
+              title="Resets Firestore counter in /sandbox/mainRoom to 0"
+            >
+              {actionLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4 text-zinc-400" />
+              )}
+              <span>RESET</span>
+            </button>
+          </div>
+
+        </div>
+
+        <div className="text-[11px] font-mono text-zinc-400 flex flex-wrap items-center justify-between gap-2 border-t border-purple-500/10 pt-3">
+          <span>• Atomic update: <strong className="text-purple-300">runTransaction()</strong></span>
+          <span>• Client state is purely read from <strong className="text-emerald-300">onSnapshot()</strong></span>
+          <span>• No local optimistic state or localStorage used</span>
+        </div>
+      </div>
+
+      {/* TWO-PLAYER TURN SYNCHRONIZATION TEST PANEL */}
+      <div id="turn-synchronization-test-panel" className="bg-gradient-to-br from-indigo-950/40 via-zinc-900 to-zinc-950 border-2 border-indigo-500/40 rounded-2xl p-6 shadow-2xl space-y-5">
+        
+        {/* Turn Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-500/20 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded bg-indigo-500/20 text-indigo-400">
+                <ArrowRightCircle className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-bold tracking-wider uppercase text-indigo-200 font-mono">
+                TWO-PLAYER TURN SYNCHRONIZATION TEST
+              </h3>
+            </div>
+            <p className="text-xs text-zinc-400 font-mono">
+              Live turn state authoritative in Firestore <code className="text-indigo-300">/sandbox/mainRoom.currentPlayerId</code>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-800">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+              Authoritative Firestore Turns
+            </span>
+          </div>
+        </div>
+
+        {/* Turn Status Banner & End Turn Action */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-center">
+          
+          {/* Visual Turn Banner: YOUR TURN vs WAITING FOR OTHER PLAYER */}
+          <div className="lg:col-span-2">
+            {isMyTurn ? (
+              <div 
+                id="turn-banner-your-turn" 
+                className="bg-emerald-950/70 border-2 border-emerald-500/80 rounded-2xl p-5 shadow-lg flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shrink-0">
+                    <CheckCircle2 className="w-7 h-7 animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-mono font-bold tracking-widest uppercase text-emerald-400 block">
+                      Active Player Status
+                    </span>
+                    <h4 className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
+                      YOUR TURN
+                    </h4>
+                    <p className="text-xs text-emerald-200/90 font-mono mt-0.5">
+                      Your Firebase UID matches <code className="text-emerald-300 font-bold">currentPlayerId</code> in Firestore.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div 
+                id="turn-banner-waiting" 
+                className="bg-amber-950/50 border-2 border-amber-600/60 rounded-2xl p-5 shadow-lg flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
+                    <Hourglass className="w-7 h-7 animate-spin" style={{ animationDuration: '3s' }} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-mono font-bold tracking-widest uppercase text-amber-400 block">
+                      Active Player Status
+                    </span>
+                    <h4 className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
+                      WAITING FOR OTHER PLAYER
+                    </h4>
+                    <p className="text-xs text-amber-200/90 font-mono mt-0.5">
+                      Waiting for <code className="text-amber-300 font-bold">{activeCurrentPlayerUid ? `Player (${activeCurrentPlayerUid.slice(0, 8)}...)` : 'another player'}</code> to take action and press End Turn.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* END TURN Button */}
+          <div className="flex flex-col gap-2">
+            <button
+              id="end-turn-btn"
+              onClick={() => roomState.endTurn()}
+              disabled={!isMyTurn || actionLoading || !hasTwoPlayers}
+              className={`w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl text-sm font-bold tracking-wider font-mono transition-all cursor-pointer shadow-xl ${
+                isMyTurn && hasTwoPlayers
+                  ? 'bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white border-2 border-indigo-400/50 hover:shadow-indigo-500/20'
+                  : 'bg-zinc-800/80 text-zinc-500 border border-zinc-700/60 cursor-not-allowed opacity-60'
+              }`}
+              title={
+                !hasTwoPlayers
+                  ? 'Requires at least 2 connected players in /sandbox/mainRoom'
+                  : !isMyTurn
+                  ? 'Only the active player holding the turn can press END TURN'
+                  : 'Atomically passes currentPlayerId to the other participant in Firestore'
+              }
+            >
+              {actionLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ArrowRightCircle className="w-5 h-5" />
+              )}
+              <span>END TURN</span>
+            </button>
+
+            {!hasTwoPlayers && (
+              <p className="text-[11px] font-mono text-zinc-400 text-center">
+                Requires 2 players in room to toggle turns.
+              </p>
+            )}
+          </div>
+
+        </div>
+
+        {/* Required Diagnostics Panel */}
+        <div id="turn-diagnostics-grid" className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3 font-mono">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-indigo-400" />
+              Turn Synchronization Diagnostics
+            </span>
+            <span className="text-[10px] text-zinc-500">Atomic Firestore State</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            
+            {/* My UID */}
+            <div id="diag-my-uid" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                My UID:
+              </span>
+              <span className="font-semibold text-emerald-400 break-all select-all block">
+                {currentUid || 'null (Unauthenticated)'}
+              </span>
+            </div>
+
+            {/* Current Player UID */}
+            <div id="diag-current-player-uid" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                Current Player UID:
+              </span>
+              <span className="font-semibold text-amber-300 break-all select-all block">
+                {activeCurrentPlayerUid || 'None (No active player)'}
+              </span>
+            </div>
+
+            {/* Is My Turn */}
+            <div id="diag-is-my-turn" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                Is My Turn:
+              </span>
+              <div className="flex items-center gap-2 pt-0.5">
+                <span className={`px-2.5 py-0.5 rounded text-xs font-bold ${
+                  isMyTurn 
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' 
+                    : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                }`}>
+                  {isMyTurn ? 'True' : 'False'}
+                </span>
+                <span className="text-[11px] text-zinc-500">
+                  {isMyTurn ? '(Active Turn)' : '(Waiting)'}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      {/* SYNCHRONIZED DICE TEST PANEL */}
+      <div id="synchronized-dice-test-panel" className="bg-gradient-to-br from-amber-950/40 via-zinc-900 to-zinc-950 border-2 border-amber-500/40 rounded-2xl p-6 shadow-2xl space-y-5">
+        
+        {/* Dice Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/20 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded bg-amber-500/20 text-amber-400">
+                <Dices className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-bold tracking-wider uppercase text-amber-200 font-mono">
+                SYNCHRONIZED DICE TEST
+              </h3>
+            </div>
+            <p className="text-xs text-zinc-400 font-mono">
+              Synchronized roll stored in Firestore <code className="text-amber-300">/sandbox/mainRoom (lastRoll, lastRollPlayerId)</code>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-amber-950/80 text-amber-300 border border-amber-800">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              Firestore Authoritative Roll
+            </span>
+          </div>
+        </div>
+
+        {/* Dice Roll Display & Roll Button */}
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6 py-2">
+          
+          {/* Visual Roll Result: LAST ROLL: X & ROLLED BY: UID */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 w-full lg:w-auto">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 flex items-center gap-4 shadow-inner min-w-[200px]">
+              <div className="w-14 h-14 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0 font-mono text-2xl font-black">
+                {lastRollValue !== null ? lastRollValue : '-'}
+              </div>
+              <div>
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">
+                  Snapshot Result
+                </span>
+                <div id="last-roll-display" className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white flex items-center gap-2">
+                  <span className="text-amber-400">LAST ROLL:</span>
+                  <span className="text-emerald-400">
+                    {lastRollValue !== null ? lastRollValue : 'None'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
+                Last Roll Origin
+              </span>
+              <div id="rolled-by-display" className="text-sm font-mono font-bold text-zinc-200 flex flex-wrap items-center gap-1.5">
+                <span className="text-amber-300">ROLLED BY:</span>
+                <span className="text-zinc-300 bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800 break-all select-all font-mono">
+                  {lastRollPlayerUid || 'None (No rolls yet)'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ROLL DICE Button */}
+          <div className="w-full sm:w-auto flex flex-col items-center sm:items-end gap-2">
+            <button
+              id="roll-dice-btn"
+              onClick={() => roomState.rollDice()}
+              disabled={!canIRoll || actionLoading}
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-black tracking-wider font-mono transition-all cursor-pointer shadow-xl ${
+                canIRoll
+                  ? 'bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 border-2 border-amber-300 hover:shadow-amber-500/30'
+                  : 'bg-zinc-800/80 text-zinc-500 border border-zinc-700/60 cursor-not-allowed opacity-60'
+              }`}
+              title={
+                !canIRoll
+                  ? 'Only the active player whose UID matches currentPlayerId can roll the dice'
+                  : 'Generates 1-6 and updates lastRoll & lastRollPlayerId in Firestore'
+              }
+            >
+              {actionLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Dices className="w-6 h-6 stroke-[2.5]" />
+              )}
+              <span>ROLL DICE</span>
+            </button>
+
+            {!canIRoll && (
+              <p className="text-[11px] font-mono text-zinc-400 text-center sm:text-right">
+                {isMyTurn ? 'Room not loaded' : 'Waiting for current player to roll'}
+              </p>
+            )}
+          </div>
+
+        </div>
+
+        {/* Required Diagnostics Display for Synchronized Dice Test */}
+        <div id="dice-diagnostics-grid" className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3 font-mono">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-amber-400" />
+              Dice Synchronization Diagnostics
+            </span>
+            <span className="text-[10px] text-zinc-500">Authoritative Firestore Snapshot</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+            
+            {/* 1. My UID */}
+            <div id="dice-diag-my-uid" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                My UID
+              </span>
+              <span className="font-semibold text-emerald-400 break-all select-all block">
+                {currentUid || 'null'}
+              </span>
+            </div>
+
+            {/* 2. Current Player */}
+            <div id="dice-diag-current-player" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                Current Player
+              </span>
+              <span className="font-semibold text-amber-300 break-all select-all block">
+                {activeCurrentPlayerUid || 'None'}
+              </span>
+            </div>
+
+            {/* 3. Last Roll */}
+            <div id="dice-diag-last-roll" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                Last Roll
+              </span>
+              <span className="font-bold text-white text-base block">
+                {lastRollValue !== null ? lastRollValue : 'None'}
+              </span>
+            </div>
+
+            {/* 4. Last Roll Player */}
+            <div id="dice-diag-last-roll-player" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                Last Roll Player
+              </span>
+              <span className="font-semibold text-purple-300 break-all select-all block">
+                {lastRollPlayerUid || 'None'}
+              </span>
+            </div>
+
+            {/* 5. Can I Roll? */}
+            <div id="dice-diag-can-i-roll" className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 space-y-1">
+              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">
+                Can I Roll?
+              </span>
+              <div className="flex items-center gap-2 pt-0.5">
+                <span className={`px-2.5 py-0.5 rounded text-xs font-bold ${
+                  canIRoll 
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' 
+                    : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                }`}>
+                  {canIRoll ? 'True' : 'False'}
+                </span>
+                <span className="text-[10px] text-zinc-500">
+                  {canIRoll ? '(Authorized)' : '(Locked)'}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      {/* 3 Core Fields: ROOM STATUS, HOST, CONNECTED PLAYERS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         {/* Field 1: ROOM STATUS */}
@@ -346,3 +797,4 @@ export const MultiplayerRoom: React.FC<MultiplayerRoomProps> = ({
     </section>
   );
 };
+
