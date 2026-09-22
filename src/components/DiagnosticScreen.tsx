@@ -17,7 +17,8 @@ import {
 import { firebaseConfig } from '../firebase';
 import { ConnectedPlayers } from './ConnectedPlayers';
 import { PresencePathDiagnostics } from './PresencePathDiagnostics';
-import type { AuthState, PresenceState } from '../types';
+import { MultiplayerRoom } from './MultiplayerRoom';
+import type { AuthState, PresenceState, RoomState } from '../types';
 
 interface DiagnosticScreenProps {
   authState: AuthState & { retrySignIn: () => Promise<void> };
@@ -26,11 +27,16 @@ interface DiagnosticScreenProps {
     updateDisplayName: (name: string) => Promise<void>;
     refreshPresence: () => Promise<void>;
   };
+  roomState: RoomState & {
+    createRoom: () => Promise<void>;
+    joinRoom: () => Promise<void>;
+  };
 }
 
 export const DiagnosticScreen: React.FC<DiagnosticScreenProps> = ({ 
   authState,
-  presenceState
+  presenceState,
+  roomState,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -142,6 +148,13 @@ export const DiagnosticScreen: React.FC<DiagnosticScreenProps> = ({
             </div>
           </div>
         )}
+
+        {/* MULTIPLAYER ROOM: /sandbox/mainRoom */}
+        <MultiplayerRoom
+          currentUid={authState.uid}
+          roomState={roomState}
+          presencePlayers={presenceState.players}
+        />
 
         {/* CONNECTED PLAYERS REAL-TIME SECTION */}
         <ConnectedPlayers

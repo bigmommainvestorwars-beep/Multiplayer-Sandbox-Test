@@ -35,3 +35,22 @@ export interface PresenceState {
   presenceDocWritten: boolean;
   listenerActive: boolean;
 }
+
+export interface SandboxRoom {
+  roomId: string;
+  createdAt: Timestamp | null | { seconds: number; nanoseconds: number };
+  hostId: string;
+  participantIds: string[];
+}
+
+export interface RoomState {
+  room: SandboxRoom | null;
+  loading: boolean;
+  actionLoading: boolean;
+  error: {
+    code?: string;
+    message: string;
+    raw?: unknown;
+  } | null;
+  listenerActive: boolean;
+}
